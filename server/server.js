@@ -1,6 +1,6 @@
 import express from 'express';
 import bodyParser from 'body-parser';
-import { connectMongoDB, writeData } from './src/db/mongoConnection.js';
+import { connectMongoDB, writeData, updateData, readData, refreshData } from './src/db/mongoConnection.js';
 import moment from "moment-timezone";
 import { v4 as uuidv4 } from "uuid";
 import cookieParser from "cookie-parser";
@@ -50,7 +50,7 @@ app.post('/api/v1/test', async (req, res) => {
         return res.status(200).json({
             success: true,
             message: 'Weight received successfully.',
-            data: { weight }
+            weight
         });
     }
 
@@ -58,7 +58,8 @@ app.post('/api/v1/test', async (req, res) => {
         return res.status(200).json({
             success: true,
             message: 'Heart rate and SpO2 received successfully.',
-            data: { heartRate, SpO2 }
+            heartRate,
+            SpO2
         });
     }
 
@@ -93,11 +94,12 @@ app.post('/api/v1/users/register', async (req, res) => {
                     weight: null
                 },
             },
-
             created_at: currentTime,
+            updated_at: currentTime,
         }
 
         await writeData("users", userData);
+        await refreshData();
         return res.status(201).json({
             success: true,
             message: 'User registered successfully.',
@@ -107,13 +109,71 @@ app.post('/api/v1/users/register', async (req, res) => {
         return res.status(500).json({
             success: false,
             message: 'Internal server error.',
-            error: error.message
         });
     }
 });
 
-app.post('/api/v1/users/:id', async (req, res) => {
-    const { id } = req.params;
+app.post('/api/v1/users/:userId', async (req, res) => {
+    const { userId } = req.params;
+    const { heartRate, SpO2, weight } = req.body;
+    const authHeader = req.headers['authorization'];
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ 
+            success: false,
+            message: 'Unauthorized access. Missing or invalid Authorization header.'
+        });
+    }
+
+    const token = authHeader.split(' ')[1];
+
+    if (!token || token !== process.env.API_KEY) {
+        return res.status(401).json({ 
+            success: false,
+            message: 'Unauthorized access. Invalid token.'
+        });
+    }
+
+    try {
+        const user = await readData("users", { userId });
+        const userExists = user.some((user) => user.userId === userId);
+        if (!userExists) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found.',
+            });
+        }
+
+        const updatedData = {
+            data: {
+                firstName: user[0].data.firstName,
+                lastName: user[0].data.lastName,
+                email: user[0].data.email,
+                age: user[0].data.age,
+                contactNumber: user[0].data.contactNumber,
+                healthStatus: {
+                    heartRate: heartRate || user[0].data.healthStatus.heartRate,
+                    SpO2: SpO2 || user[0].data.healthStatus.SpO2,
+                    weight: weight || user[0].data.healthStatus.weight
+                }
+            },
+            created_at: user[0].created_at,
+            updated_at: currentTime,
+        };
+        await updateData("users", { userId }, updatedData);
+        await refreshData();
+        return res.status(200).json({
+            success: true,
+            message: 'User data updated successfully.',
+            data: updatedData
+        });
+    } catch (error) {
+        console.error('Error updating user data:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Internal server error.',
+        });
+    }
 });
 
 app.listen(PORT, () => {
