@@ -12,7 +12,6 @@ export default function HealthDashboard() {
   useEffect(() => {
     const socket = io(import.meta.env.VITE_BACKEND_URL, {
       withCredentials: true,
-      // Ensure this matches your server’s origin
     });
 
     socket.on("connect", () => {

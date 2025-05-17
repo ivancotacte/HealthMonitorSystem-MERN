@@ -58,7 +58,7 @@ const authorize = (req, res, next) => {
 };
 
 app.get('/', (req, res) => {
-  res.send('Hello World!');
+  res.status(200).json({ success: true, message: 'Welcome to the Health Monitoring API!' });
 });
 
 app.post('/api/v1/test', authorize, async (req, res) => {
