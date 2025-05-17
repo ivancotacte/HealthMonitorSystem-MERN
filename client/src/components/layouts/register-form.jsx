@@ -246,6 +246,7 @@ export function RegisterForm({ className, ...props }) {
           </div>
 
           {/* Action Buttons */}
+          <div className="flex gap-4">
             <Button 
               variant="outline" 
               className="w-full" 
@@ -260,6 +261,7 @@ export function RegisterForm({ className, ...props }) {
             >
               Submit Health Data
             </Button>
+          </div>
         </div>
       </div>
     );
